@@ -2,6 +2,27 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserName, isAdminUser, signInWithGoogle } from '../services/firebase.js';
 
+const queueCards = [
+  {
+    label: 'Fila da live',
+    title: 'Projetos enviados',
+    value: '24',
+    meta: '+8 hoje'
+  },
+  {
+    label: 'Em análise',
+    title: 'Ideias selecionadas',
+    value: '12',
+    meta: 'curadoria Codexa'
+  },
+  {
+    label: 'Aprovado',
+    title: 'Prontos para mostrar',
+    value: '06',
+    meta: 'ao vivo'
+  }
+];
+
 export default function Login({ user, loading }) {
   const navigate = useNavigate();
   const [error, setError] = useState('');
@@ -29,26 +50,66 @@ export default function Login({ user, loading }) {
   }
 
   return (
-    <main className="auth-page">
-      <section className="auth-card auth-card-large">
-        <div className="auth-content">
-          <p className="eyebrow">Live coding • Projetos da galera</p>
-          <h1>Envie seu projeto para a live</h1>
-          <p>
-            Entre com sua conta Google para cadastrar e acompanhar seus projetos.
-          </p>
+    <main className="auth-page login-page">
+      <section className="login-shell" aria-labelledby="login-title">
+        <div className="login-hero">
+          <div className="login-brand">
+            <span className="login-brand-mark">C</span>
+            <span>Codexa Live Projects</span>
+          </div>
+
+          <div className="login-copy">
+            <p className="eyebrow">Live coding • Projetos da galera</p>
+            <h1 id="login-title" className="login-title">Sua vitrine para aparecer na live</h1>
+            <p>
+              Envie seu projeto, acompanhe a curadoria e deixe tudo pronto para
+              ser apresentado em uma experiência Codexa.
+            </p>
+          </div>
+
+          <div className="login-preview" aria-label="Resumo dos projetos da live">
+            {queueCards.map((card, index) => (
+              <article className={`queue-card queue-card-${index + 1}`} key={card.label}>
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+                <p>{card.title}</p>
+                <small>{card.meta}</small>
+              </article>
+            ))}
+          </div>
+
+          <div className="login-trust-row" aria-label="Benefícios do acesso">
+            <span>Acesso por Google</span>
+            <span>Dados por usuário</span>
+            <span>Sessão segura</span>
+          </div>
         </div>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <button className="btn btn-primary btn-full google-btn" type="submit" disabled={loading || isSubmitting}>
-            <span className="google-mark">G</span>
-            {isSubmitting ? 'Entrando...' : 'Entrar com Google'}
-          </button>
+        <aside className="login-panel">
+          <div className="login-panel-header">
+            <span className="panel-kicker">Login único</span>
+            <h2>Entre para cadastrar seu projeto</h2>
+            <p>
+              O acesso identifica sua conta e libera o ambiente correto para
+              acompanhar seus projetos.
+            </p>
+          </div>
 
-          {error ? <div className="form-alert">{error}</div> : null}
+          <form className="auth-form login-form" onSubmit={handleSubmit}>
+            <button className="btn btn-primary btn-full google-btn login-google-btn" type="submit" disabled={loading || isSubmitting}>
+              <span className="google-mark">G</span>
+              <span>{isSubmitting ? 'Entrando...' : 'Entrar com Google'}</span>
+            </button>
 
-          {user ? <span className="auth-link">Sessão ativa: {getUserName(user)}</span> : null}
-        </form>
+            {error ? <div className="form-alert">{error}</div> : null}
+
+            {user ? <span className="auth-link">Sessão ativa: {getUserName(user)}</span> : null}
+          </form>
+
+          <p className="login-security-note">
+            Autenticação via Firebase Google Auth com sessão persistente no navegador.
+          </p>
+        </aside>
       </section>
     </main>
   );
