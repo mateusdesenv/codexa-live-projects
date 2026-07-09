@@ -61,7 +61,7 @@ export default function AdminDashboard({ user }) {
 
   async function refreshProjects() {
     const [nextProjects, nextUsers, nextDraws] = await Promise.all([
-      fetchProjects(),
+      fetchProjects(user?.email),
       fetchUsers(),
       fetchDraws(8)
     ]);

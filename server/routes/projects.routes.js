@@ -13,7 +13,8 @@ projectsRouter.get('/projects', async (req, res, next) => {
   try {
     const projects = await getProjects({
       userEmail: req.query.userEmail,
-      includeAll: req.query.includeAll === 'true'
+      includeAll: req.query.includeAll === 'true',
+      adminEmail: req.query.adminEmail
     });
     res.json({ projects });
   } catch (error) {

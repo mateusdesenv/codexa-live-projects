@@ -26,6 +26,7 @@ export const env = {
   projectsCollection: process.env.PROJECTS_COLLECTION || 'codexa_live_projects',
   usersCollection: process.env.USERS_COLLECTION || 'codexa_live_projects_users',
   drawsCollection: process.env.DRAWS_COLLECTION || 'codexa_live_projects_draws',
+  adminEmail: String(process.env.ADMIN_EMAIL || 'mateus.desenv@gmail.com').trim().toLowerCase(),
   jsonLimit: process.env.JSON_LIMIT || '2mb',
   corsOrigin: splitOrigins(process.env.CORS_ORIGIN || '*')
 };

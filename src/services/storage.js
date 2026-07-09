@@ -1,3 +1,5 @@
+import { isAdminEmail } from './firebase.js';
+
 const PROJECTS_KEY = 'live_projects_items';
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -75,17 +77,24 @@ export async function request(path, options = {}) {
   return response.json();
 }
 
-export async function fetchProjects() {
+export async function fetchProjects(userEmail) {
+  const adminEmail = isAdminEmail(userEmail) ? userEmail : '';
+
   try {
-    const payload = await request('/projects?includeAll=true');
+    const query = new URLSearchParams({ includeAll: 'true', adminEmail }).toString();
+    const payload = await request(`/projects?${query}`);
     saveProjects(payload.projects);
     return payload.projects;
   } catch (error) {
-    return getProjects();
+    return adminEmail ? getProjects() : getProjectsByUser(userEmail);
   }
 }
 
 export async function fetchProjectsByUser(userEmail, userName) {
+  if (isAdminEmail(userEmail)) {
+    return fetchProjects(userEmail);
+  }
+
   try {
     const query = new URLSearchParams({ userEmail }).toString();
     const payload = await request(`/projects?${query}`);

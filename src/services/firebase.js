@@ -27,7 +27,11 @@ export const googleProvider = new GoogleAuthProvider();
 const persistenceReady = setPersistence(auth, browserLocalPersistence);
 
 export function isAdminUser(user) {
-  return user?.email?.toLowerCase() === ADMIN_EMAIL;
+  return isAdminEmail(user?.email);
+}
+
+export function isAdminEmail(email) {
+  return email?.trim().toLowerCase() === ADMIN_EMAIL;
 }
 
 export function getUserRole(user) {

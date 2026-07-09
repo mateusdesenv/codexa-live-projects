@@ -1,4 +1,5 @@
 import { getProjectsCollection } from '../config/mongodb.js';
+import { env } from '../config/env.js';
 
 const PROJECT_FIELDS = {
   _id: 0,
@@ -85,11 +86,12 @@ function normalizeUpdates(payload) {
   return updates;
 }
 
-export async function getProjects({ userEmail, includeAll = false } = {}) {
+export async function getProjects({ userEmail, includeAll = false, adminEmail } = {}) {
   const collection = await getProjectsCollection();
-  const filter = includeAll ? {} : { userEmail: normalizeEmail(userEmail) };
+  const canIncludeAll = includeAll && normalizeEmail(adminEmail) === env.adminEmail;
+  const filter = canIncludeAll ? {} : { userEmail: normalizeEmail(userEmail) };
 
-  if (!includeAll && !filter.userEmail) {
+  if (!canIncludeAll && !filter.userEmail) {
     return [];
   }
 
