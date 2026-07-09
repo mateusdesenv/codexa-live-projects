@@ -14,7 +14,11 @@ healthRouter.get('/health', async (_req, res, next) => {
       service: 'codexa-live-projects-api',
       environment: env.nodeEnv,
       database: env.mongodbDb,
-      collection: env.projectsCollection,
+      collections: {
+        projects: env.projectsCollection,
+        users: env.usersCollection,
+        draws: env.drawsCollection
+      },
       checkedAt: new Date().toISOString()
     });
   } catch (error) {

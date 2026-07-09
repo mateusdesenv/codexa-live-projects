@@ -57,7 +57,7 @@ export function getProjectsByUser(userEmail, userName) {
   );
 }
 
-async function request(path, options = {}) {
+export async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       'Content-Type': 'application/json',

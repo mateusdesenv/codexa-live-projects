@@ -3,7 +3,11 @@ import { env } from './env.js';
 
 let cachedClient;
 let cachedDb;
-let indexesReady = false;
+const indexesReady = {
+  projects: false,
+  users: false,
+  draws: false
+};
 
 export async function getDb() {
   if (cachedDb) return cachedDb;
@@ -24,13 +28,44 @@ export async function getProjectsCollection() {
   const db = await getDb();
   const collection = db.collection(env.projectsCollection);
 
-  if (!indexesReady) {
+  if (!indexesReady.projects) {
     await Promise.all([
       collection.createIndex({ id: 1 }, { unique: true, name: 'project_id_unique' }),
       collection.createIndex({ userEmail: 1, createdAt: -1 }, { name: 'user_email_createdAt_desc' }),
       collection.createIndex({ createdAt: -1 }, { name: 'createdAt_desc' })
     ]);
-    indexesReady = true;
+    indexesReady.projects = true;
+  }
+
+  return collection;
+}
+
+export async function getUsersCollection() {
+  const db = await getDb();
+  const collection = db.collection(env.usersCollection);
+
+  if (!indexesReady.users) {
+    await Promise.all([
+      collection.createIndex({ uid: 1 }, { unique: true, name: 'user_uid_unique' }),
+      collection.createIndex({ email: 1 }, { name: 'user_email' }),
+      collection.createIndex({ role: 1, lastLoginAt: -1 }, { name: 'role_lastLoginAt_desc' })
+    ]);
+    indexesReady.users = true;
+  }
+
+  return collection;
+}
+
+export async function getDrawsCollection() {
+  const db = await getDb();
+  const collection = db.collection(env.drawsCollection);
+
+  if (!indexesReady.draws) {
+    await Promise.all([
+      collection.createIndex({ id: 1 }, { unique: true, name: 'draw_id_unique' }),
+      collection.createIndex({ createdAt: -1 }, { name: 'draw_createdAt_desc' })
+    ]);
+    indexesReady.draws = true;
   }
 
   return collection;
@@ -41,6 +76,8 @@ export async function closeMongoConnection() {
     await cachedClient.close();
     cachedClient = undefined;
     cachedDb = undefined;
-    indexesReady = false;
+    indexesReady.projects = false;
+    indexesReady.users = false;
+    indexesReady.draws = false;
   }
 }

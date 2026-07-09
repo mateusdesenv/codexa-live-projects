@@ -24,6 +24,8 @@ export const env = {
   mongodbUri: required('MONGODB_URI'),
   mongodbDb: process.env.MONGODB_DB || 'codexa_live_projects',
   projectsCollection: process.env.PROJECTS_COLLECTION || 'codexa_live_projects',
+  usersCollection: process.env.USERS_COLLECTION || 'codexa_live_projects_users',
+  drawsCollection: process.env.DRAWS_COLLECTION || 'codexa_live_projects_draws',
   jsonLimit: process.env.JSON_LIMIT || '2mb',
   corsOrigin: splitOrigins(process.env.CORS_ORIGIN || '*')
 };
