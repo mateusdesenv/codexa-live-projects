@@ -28,6 +28,17 @@ export default function AdminDashboard({ user }) {
 
   useEffect(() => {
     refreshProjects();
+    const interval = setInterval(refreshProjects, 20000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshProjects();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refreshProjects);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refreshProjects);
+    };
   }, []);
 
   const stats = useMemo(() => {

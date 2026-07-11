@@ -76,6 +76,29 @@ export default function UserDashboard({ user }) {
     };
   }, [user, userEmail]);
 
+  useEffect(() => {
+    let active = true;
+    const load = () => {
+      fetchProjectsByUser(userEmail, userName)
+        .then((data) => {
+          if (active) setProjects(data);
+        })
+        .catch(() => {});
+    };
+    const interval = setInterval(load, 20000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', load);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', load);
+    };
+  }, [userEmail, userName]);
+
   async function handleCreateProject(project) {
     try {
       // Identidade (uid/email) vem do ID token no backend; não enviamos como
