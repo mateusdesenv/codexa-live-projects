@@ -9,7 +9,7 @@ const initialForm = {
   status: 'Em andamento'
 };
 
-export default function ProjectForm({ userName, userEmail, onSubmit }) {
+export default function ProjectForm({ userName, userEmail, userPhotoURL, onSubmit }) {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState(false);
@@ -56,6 +56,7 @@ export default function ProjectForm({ userName, userEmail, onSubmit }) {
       id: createProjectId(),
       userName,
       userEmail,
+      userPhotoURL: userPhotoURL || '',
       title: form.title.trim(),
       url: form.url.trim(),
       description: form.description.trim(),

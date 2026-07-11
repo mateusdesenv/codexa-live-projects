@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EmptyState from '../components/EmptyState.jsx';
-import Header from '../components/Header.jsx';
 import ProjectCard from '../components/ProjectCard.jsx';
 import Toast from '../components/Toast.jsx';
 import { fetchDraws, saveDraw } from '../services/draws.js';
@@ -15,6 +14,44 @@ import {
 import { fetchUsers, setUserDiscordAccess } from '../services/users.js';
 
 const statusOptions = ['Todos', 'Ideia', 'Em andamento', 'Finalizado'];
+
+function AdminHeader({ user, onLogout }) {
+  const navItems = [
+    { label: 'Visao geral', href: '#visao-geral', active: true },
+    { label: 'Fila', href: '#fila' },
+    { label: 'Sorteio', href: '#sorteio' },
+    { label: 'Comunidade', href: '#comunidade' },
+    { label: 'Historico', href: '#historico' }
+  ];
+
+  return (
+    <header className="admin-live-header">
+      <a className="admin-live-brand" href="#visao-geral" aria-label="Live Projects">
+        <span>LP</span>
+        <strong>Live Projects</strong>
+      </a>
+
+      <nav className="admin-live-nav" aria-label="Navegacao da central">
+        {navItems.map((item) => (
+          <a className={item.active ? 'is-active' : ''} href={item.href} key={item.label}>
+            {item.label}
+          </a>
+        ))}
+      </nav>
+
+      <div className="admin-live-user">
+        {user?.photoURL ? <img src={user.photoURL} alt="" /> : <span>MC</span>}
+        <div>
+          <strong>Mateus Camargo</strong>
+          <small>{user?.email}</small>
+        </div>
+        <button className="btn btn-ghost btn-small" onClick={onLogout}>
+          Sair
+        </button>
+      </div>
+    </header>
+  );
+}
 
 export default function AdminDashboard({ user }) {
   const navigate = useNavigate();
@@ -44,12 +81,41 @@ export default function AdminDashboard({ user }) {
   }, []);
 
   const stats = useMemo(() => {
+    const inProgress = projects.filter((project) => project.status === 'Em andamento').length;
+    const finished = projects.filter((project) => project.status === 'Finalizado').length;
+    const discordReady = users.filter((profile) => profile.discordEnabled === true).length;
+
     return {
       total: projects.length,
       unseen: projects.filter((project) => !project.seen).length,
       highlighted: projects.filter((project) => project.highlighted).length,
-      users: users.length
+      users: users.length,
+      inProgress,
+      finished,
+      discordReady
     };
+  }, [projects, users]);
+
+  const nextProject = useMemo(() => {
+    return projects.find((project) => !project.seen) || projects[0] || null;
+  }, [projects]);
+
+  const recentActivity = useMemo(() => {
+    const projectEvents = projects.slice(0, 5).map((project) => ({
+      id: `project-${project.id}`,
+      title: project.title,
+      label: project.seen ? 'Ja passou pela curadoria' : 'Novo projeto na fila',
+      meta: project.userName || project.userEmail || 'Comunidade'
+    }));
+
+    const userEvents = users.slice(0, 3).map((profile) => ({
+      id: `user-${profile.uid}`,
+      title: profile.displayName || profile.email,
+      label: profile.discordEnabled ? 'Discord liberado' : 'Usuario cadastrado',
+      meta: profile.email
+    }));
+
+    return [...projectEvents, ...userEvents].slice(0, 6);
   }, [projects, users]);
 
   const filteredProjects = useMemo(() => {
@@ -145,6 +211,10 @@ export default function AdminDashboard({ user }) {
     await refreshProjects();
   }
 
+  function handleReact(project, reaction) {
+    setToast(`${reaction} registrado para ${project.title}.`);
+  }
+
   // Atualização otimista do toggle de acesso ao Discord: reflete na hora no
   // estado local e, se a chamada falhar, faz rollback e mostra um aviso discreto.
   async function handleToggleDiscord(uid, next) {
@@ -173,41 +243,133 @@ export default function AdminDashboard({ user }) {
   }
 
   return (
-    <main className="dashboard-page">
+    <main className="dashboard-page admin-live-page">
       <Toast message={toast} onDismiss={() => setToast('')} />
-      <Header
-        title="Dashboard admin"
-        subtitle="Controle todos os projetos enviados pela galera durante a live."
-        userName={getUserName(user)}
-        photoURL={user?.photoURL}
-        actions={
-          <button className="btn btn-ghost" onClick={handleLogout}>
-            Sair do admin
-          </button>
-        }
-      />
+      <AdminHeader user={user} onLogout={handleLogout} />
 
-      <section className="stats-grid">
-        <article className="stat-card">
-          <span>Total</span>
-          <strong>{stats.total}</strong>
-        </article>
-        <article className="stat-card">
-          <span>Novos</span>
-          <strong>{stats.unseen}</strong>
-        </article>
-        <article className="stat-card">
-          <span>Destaques</span>
-          <strong>{stats.highlighted}</strong>
-        </article>
-        <article className="stat-card">
-          <span>Usuários</span>
-          <strong>{stats.users}</strong>
-        </article>
+      <section className="admin-live-hero panel" id="visao-geral">
+        <div>
+          <span className="live-badge">Pronto para live</span>
+          <h1>Central da Live</h1>
+          <p>Curadoria dos projetos enviados pela comunidade em tempo real.</p>
+        </div>
+
+        <div className="admin-live-metrics" aria-label="Metricas gerais">
+          <article>
+            <span>Fila total</span>
+            <strong>{stats.total}</strong>
+          </article>
+          <article>
+            <span>Para analisar</span>
+            <strong>{stats.unseen}</strong>
+          </article>
+          <article>
+            <span>Destaques</span>
+            <strong>{stats.highlighted}</strong>
+          </article>
+          <article>
+            <span>Comunidade</span>
+            <strong>{stats.users}</strong>
+          </article>
+        </div>
       </section>
 
-      <section className="admin-grid">
-        <article className="panel draw-panel">
+      <section className="admin-command-grid">
+        <section className="admin-main-column">
+          <article className="panel next-review-card">
+            <div className="section-title inline-title">
+              <div>
+                <p className="eyebrow">Proxima analise</p>
+                <h2>{nextProject?.title || 'Nenhum projeto na fila'}</h2>
+                <p>{nextProject ? `${nextProject.userName} enviou este projeto para a curadoria.` : 'Quando a galera enviar projetos, o proximo item aparece aqui.'}</p>
+              </div>
+              <span className="counter-pill">{stats.unseen} pendentes</span>
+            </div>
+
+            {nextProject ? (
+              <div className="next-review-actions">
+                <a className="btn btn-primary" href={nextProject.url} target="_blank" rel="noreferrer">
+                  Abrir projeto
+                </a>
+                <button className="btn btn-ghost" onClick={() => handleSeen(nextProject.id)} disabled={nextProject.seen}>
+                  {nextProject.seen ? 'Ja visto' : 'Marcar visto'}
+                </button>
+                <button className="btn btn-ghost" onClick={() => handleHighlight(nextProject.id)}>
+                  {nextProject.highlighted ? 'Remover destaque' : 'Destacar'}
+                </button>
+              </div>
+            ) : null}
+          </article>
+
+          <section className="panel admin-panel admin-queue-panel" id="fila">
+            <div className="admin-toolbar">
+              <div className="section-title">
+                <p className="eyebrow">Fila</p>
+                <h2>Projetos enviados</h2>
+                <p className="local-note">
+                  Triagem conectada ao MongoDB pela API Node do projeto.
+                </p>
+              </div>
+
+              <div className="toolbar-actions">
+                <button className="btn btn-danger" onClick={handleClearAll} disabled={projects.length === 0}>
+                  Limpar todos
+                </button>
+              </div>
+            </div>
+
+            <div className="filters-grid admin-live-filters">
+              <label className="field">
+                <span>Buscar</span>
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Projeto, usuario, tecnologia ou descricao"
+                />
+              </label>
+
+              <label className="field">
+                <span>Status</span>
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                  {statusOptions.map((status) => (
+                    <option key={status}>{status}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="admin-filter-chips" aria-label="Resumo da fila">
+              <span>{filteredProjects.length} visiveis</span>
+              <span>{stats.inProgress} em andamento</span>
+              <span>{stats.finished} finalizados</span>
+              <span>{stats.highlighted} destaques</span>
+            </div>
+
+            {isLoading ? (
+              <EmptyState title="Carregando projetos..." description="Buscando envios na API." />
+            ) : filteredProjects.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div className="project-list admin-list">
+                {filteredProjects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    mode="admin"
+                    onSeen={handleSeen}
+                    onHighlight={handleHighlight}
+                    onDelete={handleDelete}
+                    onReact={handleReact}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </section>
+
+        <aside className="admin-side-column">
+          <article className="panel draw-panel" id="sorteio">
           <div className="section-title inline-title">
             <div>
               <p className="eyebrow">Sorteio</p>
@@ -244,13 +406,14 @@ export default function AdminDashboard({ user }) {
               ))}
             </div>
           ) : null}
-        </article>
+          </article>
 
-        <article className="panel users-panel">
+          <article className="panel users-panel" id="comunidade">
           <div className="section-title inline-title">
             <div>
-              <p className="eyebrow">Contas</p>
-              <h2>Usuários cadastrados</h2>
+              <p className="eyebrow">Comunidade</p>
+              <h2>Usuarios cadastrados</h2>
+              <p>{stats.discordReady} com Discord liberado.</p>
             </div>
             <span className="counter-pill">{users.length}</span>
           </div>
@@ -291,65 +454,34 @@ export default function AdminDashboard({ user }) {
               })}
             </div>
           )}
-        </article>
-      </section>
+          </article>
 
-      <section className="panel admin-panel">
-        <div className="admin-toolbar">
-          <div className="section-title">
-            <p className="eyebrow">Moderação</p>
-            <h2>Projetos enviados</h2>
-            <p className="local-note">
-              Dados conectados ao MongoDB pela API Node do projeto.
-            </p>
-          </div>
+          <article className="panel activity-panel" id="historico">
+            <div className="section-title inline-title">
+              <div>
+                <p className="eyebrow">Historico</p>
+                <h2>Atividade recente</h2>
+              </div>
+              <span className="counter-pill">{recentActivity.length}</span>
+            </div>
 
-          <div className="toolbar-actions">
-            <button className="btn btn-danger" onClick={handleClearAll} disabled={projects.length === 0}>
-              Limpar todos
-            </button>
-          </div>
-        </div>
-
-        <div className="filters-grid">
-          <label className="field">
-            <span>Buscar</span>
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Projeto, usuário, tecnologia ou descrição"
-            />
-          </label>
-
-          <label className="field">
-            <span>Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              {statusOptions.map((status) => (
-                <option key={status}>{status}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {isLoading ? (
-          <EmptyState title="Carregando projetos..." description="Buscando envios na API." />
-        ) : filteredProjects.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="project-list admin-list">
-            {filteredProjects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                mode="admin"
-                onSeen={handleSeen}
-                onHighlight={handleHighlight}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-        )}
+            {recentActivity.length === 0 ? (
+              <EmptyState title="Sem atividade ainda." description="Projetos, usuarios e sorteios aparecem aqui." />
+            ) : (
+              <div className="activity-list">
+                {recentActivity.map((item) => (
+                  <div className="activity-item" key={item.id}>
+                    <span />
+                    <div>
+                      <strong>{item.title}</strong>
+                      <small>{item.label} • {item.meta}</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+        </aside>
       </section>
     </main>
   );

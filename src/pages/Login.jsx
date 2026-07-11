@@ -78,7 +78,14 @@ export default function Login({ user, loading }) {
       const signedUser = await signInWithGoogle();
       navigate(isAdminUser(signedUser) ? '/admin' : '/dashboard', { replace: true });
     } catch (firebaseError) {
-      setError('Não foi possível entrar com Google. Tente novamente.');
+      console.error(
+        `Google sign-in failed: ${firebaseError?.code || 'unknown'} - ${firebaseError?.message || 'Sem mensagem'}`
+      );
+      if (firebaseError?.code === 'auth/unauthorized-domain') {
+        setError('Domínio local não autorizado no Firebase. Abra pelo localhost:5173 ou adicione 127.0.0.1 nos domínios autorizados.');
+      } else {
+        setError('Não foi possível entrar com Google. Tente novamente.');
+      }
     } finally {
       setIsSubmitting(false);
     }
