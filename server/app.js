@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { env } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
+import { discordRouter } from './routes/discord.routes.js';
 import { drawsRouter } from './routes/draws.routes.js';
 import { healthRouter } from './routes/health.routes.js';
 import { projectsRouter } from './routes/projects.routes.js';
@@ -21,7 +22,7 @@ export function createApp() {
   app.use(cors({
     origin: env.corsOrigin,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type']
+    allowedHeaders: ['Content-Type', 'Authorization']
   }));
   app.use(express.json({ limit: env.jsonLimit }));
   app.use(express.urlencoded({ extended: false, limit: env.jsonLimit }));
@@ -48,8 +49,12 @@ export function createApp() {
         'DELETE /api/projects',
         'GET /api/users',
         'GET /api/users/:uid',
+        'GET /api/users/verify-email',
         'POST /api/users/session',
+        'POST /api/users/resend-verification',
         'PATCH /api/users/:uid',
+        'GET /api/discord/connect',
+        'GET /api/discord/callback',
         'GET /api/draws',
         'GET /api/draws/latest',
         'POST /api/draws'
@@ -60,6 +65,7 @@ export function createApp() {
   app.use('/api', healthRouter);
   app.use('/api', projectsRouter);
   app.use('/api', usersRouter);
+  app.use('/api', discordRouter);
   app.use('/api', drawsRouter);
 
   app.use(notFoundHandler);

@@ -1,15 +1,25 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import DiscordConnectCard from '../components/DiscordConnectCard.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import Header from '../components/Header.jsx';
 import ProjectCard from '../components/ProjectCard.jsx';
 import ProjectForm from '../components/ProjectForm.jsx';
-import { getUserName, signOutUser } from '../services/firebase.js';
-import { createProject, fetchProjectsByUser } from '../services/storage.js';
+import Toast from '../components/Toast.jsx';
+import { isAdminUser, signOutUser } from '../services/firebase.js';
+import {
+  createProject,
+  fetchProjectsByUser,
+  isProcessingUnavailable
+} from '../services/storage.js';
 import { getDisplayName, updateUserProfile, upsertUserSession } from '../services/users.js';
+
+const GENERIC_ERROR =
+  'Não foi possível processar seu cadastro agora. Tente novamente mais tarde.';
 
 export default function UserDashboard({ user }) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const userEmail = user?.email || '';
   const [profile, setProfile] = useState(null);
   const [nickname, setNickname] = useState('');
@@ -17,7 +27,31 @@ export default function UserDashboard({ user }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
+  const [toast, setToast] = useState('');
+  const [discordConnected, setDiscordConnected] = useState(false);
+  const [discordMessage, setDiscordMessage] = useState('');
   const userName = getDisplayName(profile, user);
+  const isAdmin = isAdminUser(user);
+  const showDiscordCard =
+    !isAdmin && !discordConnected && profile !== null && !profile.discordId;
+
+  // Retorno do fluxo OAuth do Discord: ?discord=1 (sucesso) | 0 (erro). Limpa o
+  // parâmetro da URL para não reprocessar em re-render/reload.
+  useEffect(() => {
+    const discordResult = searchParams.get('discord');
+    if (discordResult === null) return;
+
+    if (discordResult === '1') {
+      setDiscordConnected(true);
+      setDiscordMessage('Discord conectado. Você já entrou na sala.');
+    } else {
+      setToast('Não deu para conectar o Discord. Tente de novo.');
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('discord');
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     let active = true;
@@ -31,6 +65,7 @@ export default function UserDashboard({ user }) {
       setProfile(nextProfile);
       setNickname(nextProfile.publicNickname || '');
       setProjects(userProjects);
+      if (nextProfile?.blocked === true) setToast(GENERIC_ERROR);
       setIsLoading(false);
     }
 
@@ -42,8 +77,18 @@ export default function UserDashboard({ user }) {
   }, [user, userEmail]);
 
   async function handleCreateProject(project) {
-    await createProject(project);
-    setProjects(await fetchProjectsByUser(userEmail, userName));
+    try {
+      // Identidade (uid/email) vem do ID token no backend; não enviamos como
+      // fonte de verdade no corpo. Mantemos o project local para o fallback.
+      await createProject(project);
+      setToast('');
+      setProjects(await fetchProjectsByUser(userEmail, userName));
+    } catch (error) {
+      if (isProcessingUnavailable(error)) {
+        setToast(GENERIC_ERROR);
+      }
+      throw error;
+    }
   }
 
   async function handleSaveProfile(event) {
@@ -68,6 +113,7 @@ export default function UserDashboard({ user }) {
 
   return (
     <main className="dashboard-page">
+      <Toast message={toast} onDismiss={() => setToast('')} />
       <Header
         title={`Fala, ${userName}`}
         subtitle="Cadastra teu projeto no mural da live. Depois ele pode aparecer na análise do admin."
@@ -112,6 +158,11 @@ export default function UserDashboard({ user }) {
               {profileMessage ? <span className="success-message">{profileMessage}</span> : null}
             </form>
           </div>
+
+          {showDiscordCard ? <DiscordConnectCard /> : null}
+          {discordMessage ? (
+            <p className="success-message discord-success">{discordMessage}</p>
+          ) : null}
 
           <div className="section-title">
             <p className="eyebrow">Novo envio</p>
