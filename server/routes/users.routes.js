@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { env } from '../config/env.js';
 import { requireAuth } from '../middleware/auth.js';
 import {
+  claimVerificationToken,
   findUserByUid,
   findUserByVerificationToken,
-  findUserWithVerificationToken,
   getUserProfile,
   isAdminEmail,
   listUsers,
@@ -46,6 +46,21 @@ function verifiedRedirect(res, result) {
 async function issueVerification(user) {
   const { token, expiresAt } = createVerificationToken();
   await saveVerificationToken(user.uid, token, expiresAt);
+  await sendVerificationEmail({
+    email: user.email,
+    displayName: user.displayName || user.googleName,
+    token
+  });
+}
+
+// Igual ao issueVerification, mas com reserva ATÔMICA: só envia o e-mail se esta
+// requisição reservou o token (sem token ativo antes). Evita e-mail duplicado em
+// chamadas concorrentes de /session. Usado no fluxo de sessão; o resend continua
+// usando issueVerification (envio incondicional a pedido do usuário).
+async function issueVerificationOnce(user) {
+  const { token, expiresAt } = createVerificationToken();
+  const claimed = await claimVerificationToken(user.uid, token, expiresAt);
+  if (!claimed) return;
   await sendVerificationEmail({
     email: user.email,
     displayName: user.displayName || user.googleName,
@@ -108,12 +123,10 @@ usersRouter.post('/users/session', async (req, res, next) => {
     const needsVerification = !isAdminEmail(user.email) && user.emailVerified !== true;
 
     if (needsVerification) {
-      // Verificação de token ativo usa projeção interna (com token), sem expor
-      // o token na resposta pública devolvida ao cliente.
-      const withToken = await findUserWithVerificationToken(user.uid);
-      if (!isTokenActive(withToken)) {
-        await issueVerification(user);
-      }
+      // Reserva atômica: só a requisição que reservar o token envia o e-mail,
+      // evitando duplicidade quando /session é chamado concorrentemente
+      // (App.jsx + ConfirmEmail no mesmo carregamento).
+      await issueVerificationOnce(user);
     }
 
     res.status(201).json({

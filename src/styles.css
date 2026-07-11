@@ -498,6 +498,8 @@ p {
 }
 
 .auth-link {
+  background: transparent;
+  cursor: pointer;
   color: var(--muted);
   text-align: center;
   text-decoration: none;

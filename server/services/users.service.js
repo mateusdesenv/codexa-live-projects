@@ -222,6 +222,33 @@ export async function saveVerificationToken(uid, token, expiresAt) {
   );
 }
 
+// Reserva ATÔMICA do slot de token: só grava se NÃO houver token ativo (ausente
+// ou expirado) e o e-mail ainda não estiver verificado. Retorna true apenas para
+// a requisição que efetivamente reservou — evita e-mail duplicado quando
+// /session é chamado concorrentemente (App + ConfirmEmail no mesmo load).
+export async function claimVerificationToken(uid, token, expiresAt) {
+  const collection = await getUsersCollection();
+  const now = nowIso();
+  const result = await collection.updateOne(
+    {
+      uid,
+      emailVerified: { $ne: true },
+      $or: [
+        { verificationToken: null },
+        { verificationTokenExpiresAt: { $lt: now } }
+      ]
+    },
+    {
+      $set: {
+        verificationToken: token,
+        verificationTokenExpiresAt: expiresAt,
+        updatedAt: now
+      }
+    }
+  );
+  return result.modifiedCount === 1;
+}
+
 export async function findUserByVerificationToken(token) {
   const collection = await getUsersCollection();
   return collection.findOne({ verificationToken: token }, { projection: USER_FIELDS_WITH_TOKEN });
