@@ -1,38 +1,73 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserName, isAdminUser, signInWithGoogle } from '../services/firebase.js';
+import { fetchStats } from '../services/storage.js';
 
-const queueCards = [
-  {
-    label: 'Fila da live',
-    title: 'Projetos enviados',
-    value: '24',
-    meta: '+8 hoje'
-  },
-  {
-    label: 'Em análise',
-    title: 'Ideias selecionadas',
-    value: '12',
-    meta: 'curadoria Codexa'
-  },
-  {
-    label: 'Aprovado',
-    title: 'Prontos para mostrar',
-    value: '06',
-    meta: 'ao vivo'
-  }
-];
+const formatCount = (value) => String(Math.max(0, Number(value) || 0)).padStart(2, '0');
+
+function buildQueueCards(stats) {
+  return [
+    {
+      label: 'Fila da live',
+      title: 'Projetos enviados',
+      value: stats ? formatCount(stats.total) : '—',
+      meta: stats ? `+${Math.max(0, Number(stats.today) || 0)} hoje` : 'atualizando…'
+    },
+    {
+      label: 'Em análise',
+      title: 'Aguardando revisão',
+      value: stats ? formatCount(stats.inAnalysis) : '—',
+      meta: 'curadoria Codexa'
+    },
+    {
+      label: 'Aprovado',
+      title: 'Prontos para mostrar',
+      value: stats ? formatCount(stats.highlighted) : '—',
+      meta: 'ao vivo'
+    }
+  ];
+}
 
 export default function Login({ user, loading }) {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
     if (!loading && user) {
       navigate(isAdminUser(user) ? '/admin' : '/dashboard', { replace: true });
     }
   }, [loading, navigate, user]);
+
+  useEffect(() => {
+    let active = true;
+
+    const load = () => {
+      fetchStats()
+        .then((data) => {
+          if (active) setStats(data);
+        })
+        .catch(() => {});
+    };
+
+    load();
+    const interval = setInterval(load, 20000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', load);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', load);
+    };
+  }, []);
+
+  const queueCards = buildQueueCards(stats);
 
   async function handleSubmit(event) {
     event.preventDefault();

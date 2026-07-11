@@ -12,12 +12,12 @@ export const ADMIN_EMAIL = 'mateus.desenv@gmail.com';
 export const LIGHT_USER_ROLE = 'light';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyCL6u37p6Tp6NVQeEMWLeIfNxtrATDjniA',
-  authDomain: 'codexa-live-projects.firebaseapp.com',
-  projectId: 'codexa-live-projects',
-  storageBucket: 'codexa-live-projects.firebasestorage.app',
-  messagingSenderId: '1024392825177',
-  appId: '1:1024392825177:web:3d5dcf2326eed33d9f6448'
+  apiKey: 'AIzaSyA6s7jYzTrLgUv_p0LhYAE_AC_HWkFt27s',
+  authDomain: 'codexa-live-projects-73c34.firebaseapp.com',
+  projectId: 'codexa-live-projects-73c34',
+  storageBucket: 'codexa-live-projects-73c34.firebasestorage.app',
+  messagingSenderId: '285248631701',
+  appId: '1:285248631701:web:1d2aa69d34e2d1c1347c9c'
 };
 
 export const app = initializeApp(firebaseConfig);

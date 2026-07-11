@@ -1,5 +1,6 @@
 import { getProjectsCollection } from '../config/mongodb.js';
 import { env } from '../config/env.js';
+import { sendProjectsEmbed } from './discord.service.js';
 
 const PROJECT_FIELDS = {
   _id: 0,
@@ -14,8 +15,11 @@ const PROJECT_FIELDS = {
   seen: 1,
   highlighted: 1,
   createdAt: 1,
-  updatedAt: 1
+  updatedAt: 1,
+  discordNotifiedAt: 1
 };
+
+const DISCORD_NEW_PROJECT_COLOR = 0x22c55e; // verde (--primary)
 
 const ALLOWED_STATUS = new Set(['Ideia', 'Em andamento', 'Finalizado']);
 
@@ -101,6 +105,62 @@ export async function getProjects({ userEmail, includeAll = false, adminEmail } 
     .toArray();
 }
 
+function buildNewProjectEmbed(project) {
+  return {
+    title: '🚀 Novo projeto cadastrado',
+    color: DISCORD_NEW_PROJECT_COLOR,
+    fields: [
+      { name: 'Projeto', value: String(project.title || '—').slice(0, 256) },
+      { name: 'URL', value: String(project.url || '—').slice(0, 256) },
+      { name: 'Descrição', value: String(project.description || '—').slice(0, 1024) },
+      { name: 'Tecnologias', value: String(project.technologies || '—').slice(0, 256), inline: true },
+      { name: 'Status', value: String(project.status || '—'), inline: true },
+      {
+        name: 'Autor',
+        value: `${project.userName || '—'} (${project.userEmail || '—'})`.slice(0, 256)
+      }
+    ],
+    timestamp: new Date().toISOString()
+  };
+}
+
+// Notifica o Discord uma única vez por projeto. Idempotente: só marca como
+// notificado quando o envio dá certo, e usa um guard atômico no Mongo para não
+// reenviar em reprocessamentos concorrentes. Best-effort: falha não derruba a
+// criação do projeto.
+export async function getPublicProjectStats() {
+  const collection = await getProjectsCollection();
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const [total, today, inAnalysis, highlighted] = await Promise.all([
+    collection.countDocuments({}),
+    collection.countDocuments({ createdAt: { $gte: startOfToday.toISOString() } }),
+    collection.countDocuments({ seen: false }),
+    collection.countDocuments({ highlighted: true })
+  ]);
+  return { total, today, inAnalysis, highlighted };
+}
+
+async function notifyProjectCreatedOnce(collection, project) {
+  if (project.discordNotifiedAt) return;
+
+  // Guard atômico: só quem conseguir "reservar" o campo envia.
+  const claimedAt = nowIso();
+  const claim = await collection.updateOne(
+    { id: project.id, discordNotifiedAt: { $in: [null, undefined] } },
+    { $set: { discordNotifiedAt: claimedAt } }
+  );
+  if (claim.modifiedCount === 0) return;
+
+  const delivered = await sendProjectsEmbed(buildNewProjectEmbed(project));
+  if (!delivered) {
+    // Reverte a reserva para permitir nova tentativa futura.
+    await collection
+      .updateOne({ id: project.id }, { $set: { discordNotifiedAt: null } })
+      .catch(() => {});
+  }
+}
+
 export async function createProject(payload) {
   const collection = await getProjectsCollection();
   const project = assertProjectPayload(payload);
@@ -108,10 +168,14 @@ export async function createProject(payload) {
   const document = {
     ...project,
     createdAt: project.createdAt || timestamp,
-    updatedAt: timestamp
+    updatedAt: timestamp,
+    discordNotifiedAt: null
   };
 
   await collection.insertOne(document);
+  await notifyProjectCreatedOnce(collection, document).catch((error) => {
+    console.error('Falha ao notificar projeto no Discord:', error?.message || error);
+  });
   return document;
 }
 

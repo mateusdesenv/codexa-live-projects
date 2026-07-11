@@ -72,6 +72,10 @@ export default function ProjectForm({ userName, userEmail, onSubmit }) {
       await onSubmit(project);
       setForm(initialForm);
       setSuccess(true);
+    } catch {
+      // O feedback do erro é responsabilidade do container (toast genérico).
+      // Aqui apenas evitamos exibir sucesso e preservamos os dados digitados.
+      setSuccess(false);
     } finally {
       setIsSubmitting(false);
     }

@@ -1,7 +1,20 @@
-import { isAdminEmail } from './firebase.js';
+import { auth, isAdminEmail, signOutUser } from './firebase.js';
 
 const PROJECTS_KEY = 'live_projects_items';
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
+// Anexa a identidade verificada (ID token do Firebase) a cada chamada à API.
+// A identidade passa a vir do token no backend, não mais do corpo da requisição.
+async function authHeaders() {
+  const current = auth.currentUser;
+  if (!current) return {};
+  try {
+    const idToken = await current.getIdToken();
+    return { Authorization: `Bearer ${idToken}` };
+  } catch {
+    return {};
+  }
+}
 
 function safeParse(value, fallback) {
   try {
@@ -60,33 +73,60 @@ export function getProjectsByUser(userEmail, userName) {
 }
 
 export async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers
-    },
-    ...options
-  });
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(await authHeaders()),
+    ...options.headers
+  };
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
 
   if (!response.ok) {
+    // 401: token ausente/expirado/inválido. Limpa a sessão de forma suave (o
+    // onAuthStateChanged leva de volta ao login). Só desloga se ainda houver
+    // usuário, evitando loop de signOut.
+    if (response.status === 401 && auth.currentUser) {
+      await signOutUser().catch(() => {});
+    }
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || 'Erro ao acessar API.');
+    const error = new Error(payload.error || 'Erro ao acessar API.');
+    error.status = response.status;
+    error.code = payload.error || '';
+    throw error;
   }
 
   if (response.status === 204) return null;
   return response.json();
 }
 
-export async function fetchProjects(userEmail) {
-  const adminEmail = isAdminEmail(userEmail) ? userEmail : '';
+// Estatísticas públicas para a tela de login (sem autenticação).
+export async function fetchStats() {
+  const response = await fetch(`${API_BASE_URL}/stats`);
+  if (!response.ok) throw new Error('stats indisponível');
+  const payload = await response.json();
+  return payload.stats;
+}
 
+// Erros de indisponibilidade/bloqueio vindos do backend (rejeição intencional).
+// O fluxo NÃO deve cair no fallback local nesses casos — precisa propagar para o
+// dashboard exibir o toast genérico.
+export function isProcessingUnavailable(error) {
+  return (
+    error?.status === 429 ||
+    error?.status === 403 ||
+    error?.code === 'PROCESSING_UNAVAILABLE'
+  );
+}
+
+// O escopo agora é decidido no servidor pelo e-mail verificado do token
+// (admin vê tudo; usuário vê os seus). O cliente apenas solicita /projects.
+export async function fetchProjects(userEmail) {
   try {
-    const query = new URLSearchParams({ includeAll: 'true', adminEmail }).toString();
-    const payload = await request(`/projects?${query}`);
+    const payload = await request('/projects');
     saveProjects(payload.projects);
     return payload.projects;
   } catch (error) {
-    return adminEmail ? getProjects() : getProjectsByUser(userEmail);
+    return isAdminEmail(userEmail) ? getProjects() : getProjectsByUser(userEmail);
   }
 }
 
@@ -96,8 +136,7 @@ export async function fetchProjectsByUser(userEmail, userName) {
   }
 
   try {
-    const query = new URLSearchParams({ userEmail }).toString();
-    const payload = await request(`/projects?${query}`);
+    const payload = await request('/projects');
     saveProjects([
       ...payload.projects,
       ...getProjects().filter((project) => project.userEmail && project.userEmail !== userEmail)
@@ -117,6 +156,10 @@ export async function createProject(project) {
     saveProjects([savedProject, ...getProjects().filter((item) => item.id !== savedProject.id)]);
     return savedProject;
   } catch (error) {
+    // Só cai no fallback local em falha de rede/offline (erro sem status HTTP).
+    // Qualquer resposta do backend (4xx/5xx) é intencional — propagar para o
+    // dashboard tratar (toast genérico em 403/429, re-login em 401 etc.).
+    if (error?.status) throw error;
     addProject(project);
     return project;
   }

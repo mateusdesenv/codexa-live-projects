@@ -60,6 +60,8 @@ function upsertLocalSession(user) {
     publicNickname: current?.publicNickname || '',
     displayName: current?.publicNickname || authUser.googleName || authUser.email,
     role: getRole(authUser.email),
+    // Fallback offline: sem backend disponível não há como bloquear o acesso.
+    emailVerified: true,
     firstLoginAt: current?.firstLoginAt || timestamp,
     lastLoginAt: timestamp,
     loginCount: (current?.loginCount || 0) + 1,
@@ -125,6 +127,29 @@ export async function updateUserProfile(uid, updates) {
     writeUsers([profile, ...users.filter((item) => item.uid !== uid)]);
     return profile;
   }
+}
+
+export async function resendVerification({ uid, email }) {
+  return request('/users/resend-verification', {
+    method: 'POST',
+    body: JSON.stringify({ uid, email })
+  });
+}
+
+// Solicita a URL de autorização do Discord (rota autenticada; o ID token é
+// anexado por request). O redirect do browser é feito pelo chamador.
+export async function connectDiscord() {
+  const payload = await request('/discord/connect');
+  return payload.url;
+}
+
+// ADMIN: liga/desliga o acesso ao Discord de um usuário. O ID token é anexado
+// por request; o backend valida que o chamador é admin.
+export async function setUserDiscordAccess(uid, enabled) {
+  return request(`/users/${encodeURIComponent(uid)}/discord-access`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled })
+  });
 }
 
 export async function fetchUsers() {
