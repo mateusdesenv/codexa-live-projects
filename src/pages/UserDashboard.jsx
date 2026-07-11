@@ -182,7 +182,9 @@ export default function UserDashboard({ user }) {
             </form>
           </div>
 
-          {showDiscordCard ? <DiscordConnectCard /> : null}
+          {showDiscordCard ? (
+            <DiscordConnectCard discordEnabled={profile?.discordEnabled === true} />
+          ) : null}
           {discordMessage ? (
             <p className="success-message discord-success">{discordMessage}</p>
           ) : null}

@@ -143,6 +143,15 @@ export async function connectDiscord() {
   return payload.url;
 }
 
+// ADMIN: liga/desliga o acesso ao Discord de um usuário. O ID token é anexado
+// por request; o backend valida que o chamador é admin.
+export async function setUserDiscordAccess(uid, enabled) {
+  return request(`/users/${encodeURIComponent(uid)}/discord-access`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled })
+  });
+}
+
 export async function fetchUsers() {
   try {
     const payload = await request('/users');

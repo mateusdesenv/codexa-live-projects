@@ -55,6 +55,7 @@ export function createApp() {
         'POST /api/users/session',
         'POST /api/users/resend-verification',
         'PATCH /api/users/:uid',
+        'PATCH /api/users/:uid/discord-access',
         'GET /api/discord/connect',
         'GET /api/discord/callback',
         'GET /api/draws',

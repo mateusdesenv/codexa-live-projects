@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import EmptyState from '../components/EmptyState.jsx';
 import Header from '../components/Header.jsx';
 import ProjectCard from '../components/ProjectCard.jsx';
+import Toast from '../components/Toast.jsx';
 import { fetchDraws, saveDraw } from '../services/draws.js';
 import { getUserName, signOutUser } from '../services/firebase.js';
 import {
@@ -11,7 +12,7 @@ import {
   removeAllProjects,
   removeProject
 } from '../services/storage.js';
-import { fetchUsers } from '../services/users.js';
+import { fetchUsers, setUserDiscordAccess } from '../services/users.js';
 
 const statusOptions = ['Todos', 'Ideia', 'Em andamento', 'Finalizado'];
 
@@ -25,6 +26,7 @@ export default function AdminDashboard({ user }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [isLoading, setIsLoading] = useState(true);
+  const [toast, setToast] = useState('');
 
   useEffect(() => {
     refreshProjects();
@@ -143,6 +145,28 @@ export default function AdminDashboard({ user }) {
     await refreshProjects();
   }
 
+  // Atualização otimista do toggle de acesso ao Discord: reflete na hora no
+  // estado local e, se a chamada falhar, faz rollback e mostra um aviso discreto.
+  async function handleToggleDiscord(uid, next) {
+    setUsers((current) =>
+      current.map((item) => (item.uid === uid ? { ...item, discordEnabled: next } : item))
+    );
+
+    try {
+      const updated = await setUserDiscordAccess(uid, next);
+      setUsers((current) =>
+        current.map((item) =>
+          item.uid === uid ? { ...item, discordEnabled: updated.discordEnabled === true } : item
+        )
+      );
+    } catch {
+      setUsers((current) =>
+        current.map((item) => (item.uid === uid ? { ...item, discordEnabled: !next } : item))
+      );
+      setToast('Não foi possível atualizar o acesso ao Discord. Tente de novo.');
+    }
+  }
+
   async function handleLogout() {
     await signOutUser();
     navigate('/');
@@ -150,6 +174,7 @@ export default function AdminDashboard({ user }) {
 
   return (
     <main className="dashboard-page">
+      <Toast message={toast} onDismiss={() => setToast('')} />
       <Header
         title="Dashboard admin"
         subtitle="Controle todos os projetos enviados pela galera durante a live."
@@ -234,16 +259,36 @@ export default function AdminDashboard({ user }) {
             <EmptyState title="Nenhum usuário registrado ainda." description="Quando alguém entrar com Google, aparece aqui." />
           ) : (
             <div className="users-list">
-              {users.map((profile) => (
-                <div className="user-row" key={profile.uid}>
-                  {profile.photoURL ? <img src={profile.photoURL} alt="" /> : <span>{profile.displayName?.slice(0, 1) || 'U'}</span>}
-                  <div>
-                    <strong>{profile.displayName}</strong>
-                    <small>{profile.email}</small>
+              {users.map((profile) => {
+                const discordOn = profile.discordEnabled === true;
+                const isAdminRow = profile.role === 'admin';
+                return (
+                  <div className="user-row" key={profile.uid}>
+                    {profile.photoURL ? <img src={profile.photoURL} alt="" /> : <span>{profile.displayName?.slice(0, 1) || 'U'}</span>}
+                    <div>
+                      <strong>{profile.displayName}</strong>
+                      <small>{profile.email}</small>
+                    </div>
+                    <div className="user-row-meta">
+                      <em>{isAdminRow ? 'Admin' : `${profile.loginCount || 0} logins`}</em>
+                      {isAdminRow ? null : (
+                        <button
+                          type="button"
+                          className={`discord-switch ${discordOn ? 'is-on' : ''}`}
+                          role="switch"
+                          aria-checked={discordOn}
+                          onClick={() => handleToggleDiscord(profile.uid, !discordOn)}
+                        >
+                          <span className="discord-switch-label">Discord</span>
+                          <span className="discord-switch-track" aria-hidden="true">
+                            <span className="discord-switch-thumb" />
+                          </span>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <em>{profile.role === 'admin' ? 'Admin' : `${profile.loginCount || 0} logins`}</em>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </article>

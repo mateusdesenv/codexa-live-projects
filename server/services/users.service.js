@@ -27,7 +27,8 @@ const USER_FIELDS = {
   discordId: 1,
   discordUsername: 1,
   discordEmail: 1,
-  discordJoinedAt: 1
+  discordJoinedAt: 1,
+  discordEnabled: 1
 };
 
 // Projeção interna: inclui o token de verificação e sua expiração. Uso restrito
@@ -175,7 +176,11 @@ export async function upsertUserSession(payload) {
     lastProjectCreatedAt: null,
     abuseAttempts: 0,
     blocked: false,
-    blockedAt: null
+    blockedAt: null,
+    // Acesso ao Discord começa desabilitado para TODOS (novos e, por ausência do
+    // campo, também os já cadastrados). Só o admin promove para true. Como é
+    // $setOnInsert, nunca sobrescreve um true já existente em logins seguintes.
+    discordEnabled: false
   };
 
   if (isAdmin) {
@@ -272,6 +277,21 @@ export async function setDiscordLink(uid, { discordId, discordUsername, discordE
         updatedAt: timestamp
       }
     },
+    { returnDocument: 'after', projection: USER_FIELDS }
+  );
+
+  if (!result) throw createHttpError(404, 'Usuário não encontrado.');
+  return result;
+}
+
+// Liga/desliga o acesso do usuário ao botão "Conectar Discord". Operação
+// exclusiva do admin (validada na rota). Coerção para booleano evita persistir
+// valores truthy/falsy inesperados.
+export async function setDiscordAccess(uid, enabled) {
+  const collection = await getUsersCollection();
+  const result = await collection.findOneAndUpdate(
+    { uid },
+    { $set: { discordEnabled: !!enabled, updatedAt: nowIso() } },
     { returnDocument: 'after', projection: USER_FIELDS }
   );
 

@@ -10,6 +10,7 @@ import {
   listUsers,
   markEmailVerified,
   saveVerificationToken,
+  setDiscordAccess,
   updateUserProfile,
   upsertUserSession
 } from '../services/users.service.js';
@@ -147,6 +148,18 @@ usersRouter.patch('/users/:uid', async (req, res, next) => {
     // Só edita o próprio perfil (identidade do token).
     if (req.params.uid !== req.authUser.uid) return forbidden(res);
     const user = await updateUserProfile(req.authUser.uid, req.body);
+    res.json(user);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ADMIN-ONLY: liga/desliga o acesso ao Discord de um usuário. Usuário comum não
+// altera o próprio flag — só o admin (e-mail verificado do token) modifica.
+usersRouter.patch('/users/:uid/discord-access', async (req, res, next) => {
+  try {
+    if (!isAdminEmail(req.authUser.email)) return forbidden(res);
+    const user = await setDiscordAccess(req.params.uid, req.body?.enabled === true);
     res.json(user);
   } catch (error) {
     next(error);

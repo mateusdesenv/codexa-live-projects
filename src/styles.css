@@ -1155,6 +1155,114 @@ p {
   white-space: nowrap;
 }
 
+.user-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Toggle acessível (role="switch") de acesso ao Discord por usuário. */
+.discord-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition);
+}
+
+.discord-switch:hover {
+  border-color: var(--border-strong);
+}
+
+.discord-switch:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.discord-switch-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.discord-switch.is-on {
+  color: #bbf7d0;
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.discord-switch-track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  transition: background var(--transition);
+  flex: none;
+}
+
+.discord-switch.is-on .discord-switch-track {
+  background: var(--primary);
+}
+
+.discord-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f8fafc;
+  transition: transform var(--transition);
+}
+
+.discord-switch.is-on .discord-switch-thumb {
+  transform: translateX(18px);
+}
+
+/* Modal nerd: scrim escuro + card dark on-brand, acessível. */
+.nerd-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.nerd-modal-card {
+  width: 100%;
+  max-width: 420px;
+  display: grid;
+  gap: 14px;
+  padding: 26px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.nerd-modal-message {
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .discord-switch,
+  .discord-switch-track,
+  .discord-switch-thumb {
+    transition: none;
+  }
+}
+
 @media (max-width: 920px) {
   .auth-card-large,
   .dashboard-grid,

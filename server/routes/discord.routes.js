@@ -16,8 +16,8 @@ export const discordRouter = Router();
 
 const DISCORD_ACCENT = 0x5865f2;
 
-function forbidden(res) {
-  return res.status(403).json({ ok: false, error: 'Acesso negado.' });
+function forbidden(res, code = 'FORBIDDEN') {
+  return res.status(403).json({ ok: false, error: 'Acesso negado.', code });
 }
 
 // Redirect de volta ao front sinalizando sucesso (1) ou erro (0). Quando APP_URL
@@ -42,6 +42,12 @@ function canConnect(user, email) {
   return isAdminEmail(email) || user?.emailVerified === true;
 }
 
+// Além do e-mail confirmado, o acesso ao Discord precisa estar liberado pelo
+// admin (discordEnabled === true). Admin sempre passa. Ausência do campo = false.
+function discordAccessAllowed(user, email) {
+  return isAdminEmail(email) || user?.discordEnabled === true;
+}
+
 // PROTEGIDA: gera o state assinado com o uid do token verificado e devolve a URL
 // de autorização. O redirect é feito pelo front (não aqui).
 discordRouter.get('/discord/connect', requireAuth, async (req, res, next) => {
@@ -49,6 +55,9 @@ discordRouter.get('/discord/connect', requireAuth, async (req, res, next) => {
     const { uid, email } = req.authUser;
     const user = await findUserByUid(uid);
     if (!canConnect(user, email)) return forbidden(res);
+    // Defense-in-depth: mesmo que o front bloqueie o clique, o backend nega
+    // OAuth quando o admin não liberou o acesso ao Discord deste usuário.
+    if (!discordAccessAllowed(user, email)) return forbidden(res, 'DISCORD_DISABLED');
 
     const state = createState(uid);
     const url = buildAuthorizeUrl(state);
@@ -71,6 +80,7 @@ discordRouter.get('/discord/callback', async (req, res) => {
 
     const user = await findUserByUid(verified.uid);
     if (!canConnect(user, user?.email)) return callbackRedirect(res, '0');
+    if (!discordAccessAllowed(user, user?.email)) return callbackRedirect(res, '0');
 
     const { access_token: accessToken } = await exchangeCode(code);
     const discordUser = await getDiscordUser(accessToken);
