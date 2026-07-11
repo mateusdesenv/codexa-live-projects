@@ -15,7 +15,7 @@ function buildQueueCards(stats) {
     },
     {
       label: 'Em análise',
-      title: 'Ideias selecionadas',
+      title: 'Aguardando revisão',
       value: stats ? formatCount(stats.inAnalysis) : '—',
       meta: 'curadoria Codexa'
     },
