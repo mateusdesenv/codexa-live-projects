@@ -9,6 +9,7 @@ import { discordRouter } from './routes/discord.routes.js';
 import { drawsRouter } from './routes/draws.routes.js';
 import { healthRouter } from './routes/health.routes.js';
 import { projectsRouter } from './routes/projects.routes.js';
+import { statsRouter } from './routes/stats.routes.js';
 import { usersRouter } from './routes/users.routes.js';
 
 export function createApp() {
@@ -42,6 +43,7 @@ export function createApp() {
       },
       endpoints: [
         'GET /api/health',
+        'GET /api/stats',
         'GET /api/projects',
         'POST /api/projects',
         'PATCH /api/projects/:id',
@@ -63,6 +65,7 @@ export function createApp() {
   });
 
   app.use('/api', healthRouter);
+  app.use('/api', statsRouter);
   app.use('/api', projectsRouter);
   app.use('/api', usersRouter);
   app.use('/api', discordRouter);

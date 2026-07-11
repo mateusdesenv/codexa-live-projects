@@ -128,6 +128,19 @@ function buildNewProjectEmbed(project) {
 // notificado quando o envio dá certo, e usa um guard atômico no Mongo para não
 // reenviar em reprocessamentos concorrentes. Best-effort: falha não derruba a
 // criação do projeto.
+export async function getPublicProjectStats() {
+  const collection = await getProjectsCollection();
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const [total, today, inAnalysis, highlighted] = await Promise.all([
+    collection.countDocuments({}),
+    collection.countDocuments({ createdAt: { $gte: startOfToday.toISOString() } }),
+    collection.countDocuments({ seen: false }),
+    collection.countDocuments({ highlighted: true })
+  ]);
+  return { total, today, inAnalysis, highlighted };
+}
+
 async function notifyProjectCreatedOnce(collection, project) {
   if (project.discordNotifiedAt) return;
 

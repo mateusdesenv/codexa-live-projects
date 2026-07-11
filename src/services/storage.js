@@ -99,6 +99,14 @@ export async function request(path, options = {}) {
   return response.json();
 }
 
+// Estatísticas públicas para a tela de login (sem autenticação).
+export async function fetchStats() {
+  const response = await fetch(`${API_BASE_URL}/stats`);
+  if (!response.ok) throw new Error('stats indisponível');
+  const payload = await response.json();
+  return payload.stats;
+}
+
 // Erros de indisponibilidade/bloqueio vindos do backend (rejeição intencional).
 // O fluxo NÃO deve cair no fallback local nesses casos — precisa propagar para o
 // dashboard exibir o toast genérico.
