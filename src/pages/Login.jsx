@@ -42,13 +42,28 @@ export default function Login({ user, loading }) {
 
   useEffect(() => {
     let active = true;
-    fetchStats()
-      .then((data) => {
-        if (active) setStats(data);
-      })
-      .catch(() => {});
+
+    const load = () => {
+      fetchStats()
+        .then((data) => {
+          if (active) setStats(data);
+        })
+        .catch(() => {});
+    };
+
+    load();
+    const interval = setInterval(load, 20000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', load);
+
     return () => {
       active = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', load);
     };
   }, []);
 
