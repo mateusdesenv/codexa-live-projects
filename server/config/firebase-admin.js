@@ -12,13 +12,32 @@ import './env.js';
 let authClient = null;
 let initError = null;
 
+// Aceita a service account como JSON cru (produção/Vercel, env var real) OU em
+// base64 do JSON. O base64 evita a corrupção do "\n" da private key quando a env
+// é carregada de um arquivo .env local (dotenv/dotenvx reinterpreta o escape),
+// permitindo rodar localmente com um .env comum.
+function decodeServiceAccount(value) {
+  if (value.startsWith('{')) {
+    return value;
+  }
+  try {
+    const decoded = Buffer.from(value, 'base64').toString('utf8').trim();
+    if (decoded.startsWith('{')) {
+      return decoded;
+    }
+  } catch {
+    // cai para o valor original; o JSON.parse abaixo emite o erro claro
+  }
+  return value;
+}
+
 function parseServiceAccount(raw) {
   const value = String(raw || '').trim();
   if (!value) {
     throw new Error('FIREBASE_SERVICE_ACCOUNT ausente.');
   }
   try {
-    return JSON.parse(value);
+    return JSON.parse(decodeServiceAccount(value));
   } catch (error) {
     throw new Error(`FIREBASE_SERVICE_ACCOUNT inválida (JSON malformado): ${error.message}`);
   }
